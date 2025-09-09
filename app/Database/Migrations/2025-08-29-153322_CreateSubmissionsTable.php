@@ -30,10 +30,6 @@ class CreateSubmissionsTable extends Migration
                 'constraint' => 5,
                 'default'    => 0,
             ],
-            'submitted_at' => [
-                'type' => 'DATETIME',
-                'null' => true,
-            ],
             'created_at' => [
                 'type' => 'DATETIME',
                 'null' => true,
