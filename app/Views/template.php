@@ -23,6 +23,21 @@
                     <li class="nav-item">
                         <a class="nav-link" href="<?= base_url('contact') ?>">Contact</a>
                     </li>
+                    <?php if (session()->get('isLoggedIn')): ?>
+                        <li class="nav-item">
+                            <a class="nav-link" href="<?= base_url('dashboard') ?>">Dashboard</a>
+                        </li>
+                        <?php if (in_array(session()->get('role'), ['teacher', 'admin'])): ?>
+                            <li class="nav-item">
+                                <a class="nav-link" href="<?= base_url('manage-courses') ?>">Manage Courses</a>
+                            </li>
+                        <?php endif; ?>
+                        <?php if (session()->get('role') == 'admin'): ?>
+                            <li class="nav-item">
+                                <a class="nav-link" href="<?= base_url('manage-users') ?>">Manage Users</a>
+                            </li>
+                        <?php endif; ?>
+                    <?php endif; ?>
                 </ul>
 
                 <ul class="navbar-nav">

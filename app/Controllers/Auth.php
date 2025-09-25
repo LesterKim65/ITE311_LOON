@@ -114,10 +114,28 @@ class Auth extends BaseController
 			return redirect()->to('/login');
 		}
 
+		$user_id = session()->get('id');
+		$role = session()->get('role');
+
+		$db = \Config\Database::connect();
+
 		$data = [
 			'name' => session()->get('name'),
-			'role' => session()->get('role')
+			'role' => $role
 		];
+
+		if ($role == 'student') {
+			$courses = $db->query("SELECT c.id, c.title, c.description FROM enrollments e JOIN courses c ON e.course_id = c.id WHERE e.user_id = ? AND e.status = 'active'", [$user_id])->getResultArray();
+			$data['courses'] = $courses;
+		} elseif ($role == 'teacher') {
+			$courses = $db->query("SELECT id, title, description FROM courses WHERE instructor_id = ?", [$user_id])->getResultArray();
+			$data['courses'] = $courses;
+		} elseif ($role == 'admin') {
+			$users = $db->query("SELECT id, name, email, role FROM users")->getResultArray();
+			$courses = $db->query("SELECT id, title, description, instructor_id FROM courses")->getResultArray();
+			$data['users'] = $users;
+			$data['courses'] = $courses;
+		}
 
 		return view('auth/dashboard', $data);
 	}
@@ -130,26 +148,7 @@ class Auth extends BaseController
 	}
 
 	// TEMP: Debug helper to verify DB insert works without the form/CSRF
-	public function testRegister()
-	{
-		$userModel = new UserModel();
-		$email = 'debug_' . time() . '@example.com';
-		$data = [
-			'name'     => 'Debug User',
-			'email'    => $email,
-			'password' => password_hash('secret123', PASSWORD_DEFAULT),
-			'role'     => 'student',
-		];
-		try {
-			if (! $userModel->save($data)) {
-				$errors = $userModel->errors();
-				return $this->response->setStatusCode(500)->setBody('FAIL: ' . ($errors ? implode(' ', $errors) : 'Unknown error'));
-			}
-			return $this->response->setBody('OK: ' . $email);
-		} catch (\Throwable $e) {
-			return $this->response->setStatusCode(500)->setBody('EXCEPTION: ' . $e->getMessage());
-		}
-	}
+
 }
 
 
