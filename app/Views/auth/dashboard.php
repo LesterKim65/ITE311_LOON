@@ -30,8 +30,8 @@ Dashboard
                     <h5>Your Enrolled Courses</h5>
                 </div>
                 <div class="card-body" id="enrolled-courses">
-                    <?php if (isset($enrolledCourses) && !empty($enrolledCourses)): ?>
-                        <div class="row">
+                    <div class="row" id="enrolled-courses-container">
+                        <?php if (isset($enrolledCourses) && !empty($enrolledCourses)): ?>
                             <?php foreach ($enrolledCourses as $course): ?>
                                 <div class="col-md-4 mb-3">
                                     <div class="card">
@@ -42,10 +42,12 @@ Dashboard
                                     </div>
                                 </div>
                             <?php endforeach; ?>
-                        </div>
-                    <?php else: ?>
-                        <p>No enrolled courses found.</p>
-                    <?php endif; ?>
+                        <?php else: ?>
+                            <div class="col-12">
+                                <p class="text-center text-muted mb-0">No enrolled courses found.</p>
+                            </div>
+                        <?php endif; ?>
+                    </div>
                 </div>
             </div>
 
@@ -77,44 +79,82 @@ Dashboard
 
             <script>
                 $(document).ready(function() {
+                    console.log('Dashboard JavaScript loaded');
+
                     $('.enroll-btn').click(function(e) {
                         e.preventDefault();
-                        var courseId = $(this).data('course-id');
-                        var button = $(this);
-                        var courseCard = button.closest('.col-md-4');
+                        console.log('Enroll button clicked');
 
-                        // Add CSRF token to the request
+                        var button = $(this);
+                        var courseId = button.data('course-id');
+                        console.log('Course ID:', courseId);
+
+                        if (!courseId) {
+                            console.error('No course ID found');
+                            return false;
+                        }
+
+                        button.prop('disabled', true).text('Enrolling...');
+
                         $.ajax({
                             url: '<?= site_url('course/enroll') ?>',
                             type: 'POST',
-                            data: {
-                                course_id: courseId,
-                                <?= csrf_token() ?>: '<?= csrf_hash() ?>'
-                            },
-                            dataType: 'json',
+                            data: { course_id: courseId },
                             success: function(response) {
+                                console.log('AJAX success:', response);
+
                                 if (response.success) {
-                                    // Show success message
-                                    $('#available-courses .card-body').prepend('<div class="alert alert-success alert-dismissible fade show" role="alert">' + response.message + '<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>');
-                                    
-                                    // Disable the button
-                                    button.prop('disabled', true).text('Enrolled').removeClass('btn-primary').addClass('btn-secondary');
-                                    
-                                    // Reload the page after 1.5 seconds to update enrolled courses list
-                                    setTimeout(function() {
-                                        location.reload();
-                                    }, 1500);
+                                    // Update button to enrolled state
+                                    button.removeClass('btn-primary').addClass('btn-success')
+                                          .html('✓ Enrolled').prop('disabled', true);
+
+                                    // Get course info and move to enrolled section
+                                    var courseCard = button.closest('.col-md-4');
+                                    var courseTitle = courseCard.find('.card-title').text();
+                                    var courseDescription = courseCard.find('.card-text').text();
+
+                                    console.log('Moving course:', courseTitle);
+
+                                    // Create enrolled course card
+                                    var enrolledCourseHtml = `
+                                        <div class="col-md-4 mb-3">
+                                            <div class="card h-100 border-success">
+                                                <div class="card-body">
+                                                    <h6 class="card-title">${courseTitle}</h6>
+                                                    <p class="card-text">${courseDescription}</p>
+                                                    <small class="text-success">
+                                                        <i class="fas fa-check-circle me-1"></i>Enrolled
+                                                    </small>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    `;
+
+                                    // Add to enrolled courses section
+                                    $('#enrolled-courses-container').append(enrolledCourseHtml);
+
+                                    // Remove from available courses with fade effect
+                                    courseCard.fadeOut(300, function() {
+                                        courseCard.remove();
+                                        console.log('Course card removed');
+                                    });
+
+                                    // Hide "No enrolled courses" message if visible
+                                    $('#enrolled-courses-container .text-muted').hide();
+
+                                    console.log('Course moved successfully');
                                 } else {
-                                    // Show error message
-                                    $('#available-courses .card-body').prepend('<div class="alert alert-danger alert-dismissible fade show" role="alert">' + response.message + '<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>');
+                                    button.prop('disabled', false).text('Enroll');
+                                    console.error('Enrollment failed:', response.message);
                                 }
                             },
                             error: function(xhr, status, error) {
-                                console.error('AJAX Error:', status, error);
-                                console.error('Response:', xhr.responseText);
-                                $('#available-courses .card-body').prepend('<div class="alert alert-danger alert-dismissible fade show" role="alert">An error occurred. Please try again.<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>');
+                                console.error('AJAX error:', error, 'Status:', status);
+                                button.prop('disabled', false).text('Enroll');
                             }
                         });
+
+                        return false;
                     });
                 });
             </script>

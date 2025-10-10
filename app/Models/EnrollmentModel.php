@@ -8,12 +8,14 @@ class EnrollmentModel extends Model
 {
     protected $table = 'enrollments';
     protected $primaryKey = 'id';
-    protected $allowedFields = ['user_id', 'course_id', 'enrollment_date'];
+    protected $allowedFields = ['user_id', 'course_id', 'enrolled_at', 'status'];
     protected $useTimestamps = false;
+    protected $returnType = 'array';
 
     public function enrollUser($data)
     {
-        $data['enrollment_date'] = date('Y-m-d H:i:s');
+        $data['enrolled_at'] = date('Y-m-d H:i:s');
+        $data['status'] = 'active';
         return $this->insert($data);
     }
 
