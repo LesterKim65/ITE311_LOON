@@ -9,84 +9,111 @@ class Materials extends BaseController
 {
     public function upload($course_id)
     {
-        // SIMPLE UPLOAD - WORKS LIKE THE SIMPLE VERSION
-        // Debug output to session for visibility
-        session()->setFlashdata('debug', 'Controller called - Method: ' . $this->request->getMethod() . ', Course: ' . $course_id);
-        
-        log_message('info', '=== SIMPLE UPLOAD METHOD CALLED ===');
+        $success = null;
+        $error = null;
+        $debug = 'Controller called - Method: ' . $this->request->getMethod() . ', Course: ' . $course_id;
+
+        log_message('info', '=== UPLOAD METHOD CALLED ===');
         log_message('info', 'Course ID: ' . $course_id);
         log_message('info', 'Request Method: ' . $this->request->getMethod());
-        log_message('info', 'Is POST: ' . ($this->request->getMethod() === 'post' ? 'YES' : 'NO'));
-        log_message('info', 'POST data: ' . json_encode($this->request->getPost()));
-        log_message('info', 'FILES data: ' . json_encode($_FILES));
-        
-        if ($this->request->getMethod() === 'post') {
-            session()->setFlashdata('debug', 'POST request received');
-            
+
+        // Get materials for display
+        $materialModel = new MaterialModel();
+        $materials = $materialModel->getMaterialsByCourse($course_id);
+
+        if ($this->request->getMethod() === 'POST') {
+            $debug .= ' | POST request received';
+
             $file = $this->request->getFile('material_file');
-            session()->setFlashdata('debug', 'File object: ' . ($file ? 'EXISTS' : 'NULL'));
-            
+            $debug .= ' | File object: ' . ($file ? 'EXISTS' : 'NULL');
+
             if ($file) {
-                session()->setFlashdata('debug', 'File valid: ' . ($file->isValid() ? 'YES' : 'NO') . ', Has moved: ' . ($file->hasMoved() ? 'YES' : 'NO'));
+                $debug .= ' | File valid: ' . ($file->isValid() ? 'YES' : 'NO') . ', Has moved: ' . ($file->hasMoved() ? 'YES' : 'NO');
             }
-            
+
             if ($file && $file->isValid() && !$file->hasMoved()) {
-                // Create upload directory
-                $uploadPath = WRITEPATH . 'uploads/materials/';
-                if (!is_dir($uploadPath)) {
-                    mkdir($uploadPath, 0777, true);
-                }
-                
-                $newName = uniqid() . '_' . $file->getClientName();
-                $fullPath = $uploadPath . $newName;
-                
-                if ($file->move($uploadPath, $newName)) {
-                    // Set file permissions
-                    chmod($fullPath, 0644);
-                    
-                    // Save to database
-                    $materialModel = new MaterialModel();
-                    $data = [
-                        'course_id' => $course_id,
-                        'file_name' => $file->getClientName(),
-                        'file_path' => $fullPath,
-                        'instructor_id' => session()->get('id') ?: 1,
-                        'created_at' => date('Y-m-d H:i:s')
-                    ];
-                    
-                    log_message('info', 'Attempting to insert material with data: ' . json_encode($data));
-                    
-                    $insertResult = $materialModel->insert($data);
-                    log_message('info', 'Insert result: ' . ($insertResult ? 'SUCCESS' : 'FAILED'));
-                    
-                    if ($insertResult) {
-                        log_message('info', 'Material inserted successfully with ID: ' . $insertResult);
-                        session()->setFlashdata('success', 'Material uploaded successfully!');
-                    } else {
-                        log_message('error', 'Failed to insert material. Model errors: ' . json_encode($materialModel->errors()));
-                        // Remove file if database insert fails
-                        if (file_exists($fullPath)) {
-                            unlink($fullPath);
-                        }
-                        session()->setFlashdata('error', 'Failed to save material to database.');
-                    }
+                // Validate file type and size
+                $allowedTypes = ['pdf', 'doc', 'docx', 'ppt', 'pptx', 'txt', 'jpg', 'jpeg', 'png', 'zip'];
+                $maxSize = 50 * 1024 * 1024; // 50MB in bytes
+                $extension = strtolower($file->getClientExtension());
+                $size = $file->getSize();
+
+                if (!in_array($extension, $allowedTypes)) {
+                    $error = 'Invalid file type. Allowed types: PDF, DOC, DOCX, PPT, PPTX, TXT, JPG, PNG, ZIP.';
+                } elseif ($size > $maxSize) {
+                    $error = 'File size exceeds 50MB.';
                 } else {
-                    session()->setFlashdata('error', 'Failed to move uploaded file.');
+                    // Create upload directory
+                    $uploadPath = WRITEPATH . 'uploads/materials/';
+                    if (!is_dir($uploadPath)) {
+                        mkdir($uploadPath, 0777, true);
+                    }
+
+                    $newName = uniqid() . '_' . $file->getClientName();
+                    $fullPath = $uploadPath . $newName;
+
+                    if ($file->move($uploadPath, $newName)) {
+                        // Set file permissions
+                        chmod($fullPath, 0644);
+
+                        // Save to database
+                        $materialModel = new MaterialModel();
+                        $data = [
+                            'course_id' => $course_id,
+                            'file_name' => $file->getClientName(),
+                            'file_path' => 'uploads/materials/' . $newName,
+                            'instructor_id' => session()->get('id') ?: 1,
+                            'created_at' => date('Y-m-d H:i:s')
+                        ];
+
+                        log_message('info', 'Attempting to insert material with data: ' . json_encode($data));
+
+                        $insertResult = $materialModel->insert($data);
+                        log_message('info', 'Insert result: ' . ($insertResult ? 'SUCCESS' : 'FAILED'));
+
+                        if ($insertResult) {
+                            log_message('info', 'Material inserted successfully with ID: ' . $insertResult);
+                            $success = 'Material uploaded successfully!';
+
+                            // Refetch materials after insert
+                            $materials = $materialModel->getMaterialsByCourse($course_id);
+
+                            return view('materials/upload', [
+                                'course_id' => $course_id,
+                                'materials' => $materials,
+                                'success' => $success,
+                                'error' => $error,
+                                'debug' => $debug
+                            ]);
+                        } else {
+                            log_message('error', 'Failed to insert material. Model errors: ' . json_encode($materialModel->errors()));
+                            // Remove file if database insert fails
+                            if (file_exists($fullPath)) {
+                                unlink($fullPath);
+                            }
+                            $error = 'Failed to save material to database.';
+                        }
+                    } else {
+                        $error = 'Failed to move uploaded file.';
+                    }
                 }
             } else {
-                $error = $file ? $file->getErrorString() : 'No file received';
-                session()->setFlashdata('error', 'File upload error: ' . $error);
+                $error = 'File upload error: ' . ($file ? $file->getErrorString() : 'No file received');
             }
-            
-            return redirect()->to('/admin/course/' . $course_id . '/upload');
         }
-        
+
         // Debug session info
         log_message('info', 'Session ID: ' . session()->get('id'));
         log_message('info', 'Session Role: ' . session()->get('role'));
         log_message('info', 'Session Name: ' . session()->get('name'));
-        
-        return view('materials/upload', ['course_id' => $course_id]);
+
+        return view('materials/upload', [
+            'course_id' => $course_id,
+            'materials' => $materials,
+            'success' => $success,
+            'error' => $error,
+            'debug' => $debug
+        ]);
     }
 
     public function view($course_id)
@@ -111,8 +138,12 @@ class Materials extends BaseController
         $material = $materialModel->find($material_id);
 
         if ($material) {
-            // Get file path first
-            $filePath = $material['file_path'];
+            // Handle relative or absolute path
+            if (strpos($material['file_path'], 'uploads') === 0) {
+                $filePath = WRITEPATH . $material['file_path'];
+            } else {
+                $filePath = $material['file_path'];
+            }
             
             // Delete from database (this always works)
             $dbResult = $materialModel->delete($material_id);
@@ -170,8 +201,15 @@ class Materials extends BaseController
             return redirect()->to('/dashboard');
         }
 
+        // Handle relative or absolute path
+        if (strpos($material['file_path'], 'uploads') === 0) {
+            $filePath = WRITEPATH . $material['file_path'];
+        } else {
+            $filePath = $material['file_path'];
+        }
+
         // Force download
-        return $this->response->download($material['file_path'], null)->setFileName($material['file_name']);
+        return $this->response->download($filePath, null)->setFileName($material['file_name']);
     }
 
     public function getMaterialsByCourse($course_id)
@@ -197,7 +235,7 @@ class Materials extends BaseController
     {
         log_message('info', '=== DEBUG UPLOAD METHOD CALLED ===');
         
-        if ($this->request->getMethod() === 'post') {
+        if ($this->request->getMethod() === 'POST') {
             log_message('info', 'POST request received in debug upload');
             
             $file = $this->request->getFile('material_file');
@@ -249,7 +287,7 @@ class Materials extends BaseController
 
     public function simpleDebug()
     {
-        if ($this->request->getMethod() === 'post') {
+        if ($this->request->getMethod() === 'POST') {
             log_message('info', '=== SIMPLE DEBUG UPLOAD METHOD CALLED ===');
             
             $file = $this->request->getFile('material_file');

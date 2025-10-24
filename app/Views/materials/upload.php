@@ -13,24 +13,22 @@ Upload Material
                     <h4>Upload Material for Course</h4>
                 </div>
                 <div class="card-body">
-                    <?php if (session()->getFlashdata('success')): ?>
+                    <?php if ($success): ?>
                         <div class="alert alert-success">
-                            <?= esc(session()->getFlashdata('success')) ?>
+                            <?= esc($success) ?>
                         </div>
                     <?php endif; ?>
 
-                    <?php if (session()->getFlashdata('error')): ?>
+                    <?php if ($error): ?>
                         <div class="alert alert-danger">
-                            <?= esc(session()->getFlashdata('error')) ?>
+                            <?= esc($error) ?>
                         </div>
                     <?php endif; ?>
-                    
-                    <!-- Debug flash messages -->
+
+                    <!-- Debug info -->
                     <div class="alert alert-info">
-                        <strong>Flash Messages Debug:</strong><br>
-                        Success: <?= session()->getFlashdata('success') ?: 'None' ?><br>
-                        Error: <?= session()->getFlashdata('error') ?: 'None' ?><br>
-                        Debug: <?= session()->getFlashdata('debug') ?: 'None' ?>
+                        <strong>Debug Info:</strong><br>
+                        <?= esc($debug) ?>
                     </div>
 
                     <?php
@@ -61,16 +59,8 @@ Upload Material
                                 <a href="<?= site_url('dashboard') ?>" class="btn btn-primary">Back to Dashboard</a>
                             </div>
                         <?php } else { ?>
-                            <div class="alert alert-info">
-                                <strong>Debug Info:</strong><br>
-                                User ID: <?= session()->get('id') ?><br>
-                                User Role: <?= session()->get('role') ?><br>
-                                Course ID: <?= $course_id ?><br>
-                                Is Instructor: <?= $isInstructor ? 'YES' : 'NO' ?><br>
-                                Form Action: <?= site_url('admin/course/' . $course_id . '/upload') ?><br>
-                                Current URL: <?= current_url() ?>
-                            </div>
                             <form action="<?= site_url('admin/course/' . $course_id . '/upload') ?>" method="post" enctype="multipart/form-data">
+                                <?= csrf_field() ?>
                                 <div class="mb-3">
                                     <label for="material_file" class="form-label">Select File</label>
                                     <input type="file" class="form-control" id="material_file" name="material_file" required>
@@ -79,16 +69,57 @@ Upload Material
                                 <button type="submit" class="btn btn-primary">Upload Material</button>
                                 <a href="<?= site_url('dashboard') ?>" class="btn btn-secondary">Back to Dashboard</a>
                             </form>
-                            
+
+                            <?php if (!empty($materials)): ?>
+                                <h5 class="mt-4">Uploaded Materials</h5>
+                                <div class="list-group">
+                                    <?php foreach ($materials as $material): ?>
+                                        <div class="list-group-item d-flex justify-content-between align-items-center">
+                                            <div>
+                                                <i class="fas fa-file"></i> <strong><?= esc($material['file_name']) ?></strong>
+                                                <br>
+                                                <small class="text-muted">Uploaded: <?= date('M j, Y g:i A', strtotime($material['created_at'])) ?></small>
+                                            </div>
+                                            <div>
+                                                <a href="<?= site_url('materials/download/' . $material['id']) ?>" class="btn btn-sm btn-outline-primary">Download</a>
+                                                <button onclick="deleteMaterial(<?= $material['id'] ?>)" class="btn btn-sm btn-outline-danger">Delete</button>
+                                            </div>
+                                        </div>
+                                    <?php endforeach; ?>
+                                </div>
+                            <?php endif; ?>
+
                             <script>
                                 document.getElementById('material_file').addEventListener('change', function() {
                                     console.log('File selected:', this.files[0]);
                                 });
-                                
+
                                 document.querySelector('form').addEventListener('submit', function(e) {
                                     console.log('Form submit event triggered');
                                     console.log('Form data:', new FormData(this));
                                 });
+
+                                function deleteMaterial(materialId) {
+                                    if (confirm('Are you sure you want to delete this material? This action cannot be undone.')) {
+                                        const form = document.createElement('form');
+                                        form.method = 'POST';
+                                        form.action = '<?= site_url('materials/delete') ?>/' + materialId;
+
+                                        // Add CSRF token from the main form
+                                        const mainForm = document.querySelector('form');
+                                        const csrfInputMain = mainForm.querySelector('input[name="csrf_test_name"]');
+                                        if (csrfInputMain) {
+                                            const csrfInput = document.createElement('input');
+                                            csrfInput.type = 'hidden';
+                                            csrfInput.name = 'csrf_test_name';
+                                            csrfInput.value = csrfInputMain.value;
+                                            form.appendChild(csrfInput);
+                                        }
+
+                                        document.body.appendChild(form);
+                                        form.submit();
+                                    }
+                                }
                             </script>
                         <?php }
                     } ?>

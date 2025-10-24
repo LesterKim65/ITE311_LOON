@@ -25,8 +25,7 @@ class CreateMaterialsTable extends Migration
                 'constraint' => 255,
             ],
             'file_path' => [
-                'type'       => 'VARCHAR',
-                'constraint' => 255,
+                'type' => 'TEXT',
             ],
             'instructor_id' => [
                 'type'       => 'INT',
