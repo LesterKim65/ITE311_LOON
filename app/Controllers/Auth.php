@@ -5,7 +5,7 @@ namespace App\Controllers;
 use App\Models\UserModel;
 use App\Models\NotificationModel;
 
-class Auth extends BaseController   
+class Auth extends BaseController
 {
 	public function register()
 	{

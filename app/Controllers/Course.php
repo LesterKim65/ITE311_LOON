@@ -38,7 +38,7 @@ class Course extends BaseController
                 // Create notification
                 $notificationModel = new \App\Models\NotificationModel();
                 $course = $this->db->table('courses')->where('id', $course_id)->get()->getRow();
-                $courseName = $course ? $course->name : 'Unknown Course';
+                $courseName = $course ? $course->title : 'Unknown Course';
                 $message = "You have been enrolled in " . $courseName;
                 $notificationModel->insert([
                     'user_id' => $user_id,

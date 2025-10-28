@@ -1,3 +1,10 @@
+<?php
+if (session()->get('isLoggedIn')) {
+    $unreadCount = (new \App\Models\NotificationModel())->getUnreadCount(session()->get('id'));
+} else {
+    $unreadCount = 0;
+}
+?>
 <!DOCTYPE html>
 <html>
 <head>
@@ -126,11 +133,93 @@
             // Mark as read
             $(document).on('click', '.mark-read', function() {
                 var id = $(this).data('id');
-                $.post('/notifications/mark_read/' + id, function(data) {
+                $.post('/notifications/mark_read/' + id, {
+                    '<?= csrf_token() ?>': '<?= csrf_hash() ?>'
+                }, function(data) {
                     if (data.success) {
                         fetchNotifications();
                     }
                 });
+            });
+
+            // Enroll button handler
+            $(document).on('click', '.enroll-btn', function(e) {
+                e.preventDefault();
+                console.log('Enroll button clicked');
+
+                var button = $(this);
+                var courseId = button.data('course-id');
+                console.log('Course ID:', courseId);
+
+                if (!courseId) {
+                    console.error('No course ID found');
+                    return false;
+                }
+
+                button.prop('disabled', true).text('Enrolling...');
+
+                $.ajax({
+                    url: '<?= site_url('course/enroll') ?>',
+                    type: 'POST',
+                    data: {
+                        course_id: courseId,
+                        '<?= csrf_token() ?>': '<?= csrf_hash() ?>'
+                    },
+                    success: function(response) {
+                        console.log('AJAX success:', response);
+
+                        if (response.success) {
+                            // Update button to enrolled state
+                            button.removeClass('btn-primary').addClass('btn-success')
+                                  .html('✓ Enrolled').prop('disabled', true);
+
+                            // Get course info and move to enrolled section
+                            var courseCard = button.closest('.col-md-4');
+                            var courseTitle = courseCard.find('.card-title').text();
+                            var courseDescription = courseCard.find('.card-text').text();
+
+                            console.log('Moving course:', courseTitle);
+
+                            // Create enrolled course card
+                            var enrolledCourseHtml = `
+                                <div class="col-md-4 mb-3">
+                                    <div class="card h-100 border-success">
+                                        <div class="card-body">
+                                            <h6 class="card-title">${courseTitle}</h6>
+                                            <p class="card-text">${courseDescription}</p>
+                                            <small class="text-success">
+                                                <i class="fas fa-check-circle me-1"></i>Enrolled
+                                            </small>
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+
+                            // Add to enrolled courses section
+                            $('#enrolled-courses-container').append(enrolledCourseHtml);
+
+                            // Remove from available courses with fade effect
+                            courseCard.fadeOut(300, function() {
+                                courseCard.remove();
+                                console.log('Course card removed');
+                            });
+
+                            // Hide "No enrolled courses" message if visible
+                            $('#enrolled-courses-container .text-muted').hide();
+
+                            console.log('Course moved successfully');
+                        } else {
+                            button.prop('disabled', false).text('Enroll');
+                            console.error('Enrollment failed:', response.message);
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        console.error('AJAX error:', error, 'Status:', status);
+                        button.prop('disabled', false).text('Enroll');
+                    }
+                });
+
+                return false;
             });
         });
     </script>
