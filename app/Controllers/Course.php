@@ -45,6 +45,14 @@ class Course extends BaseController
             return $this->response->setJSON(['success' => false, 'message' => 'Not logged in']);
         }
 
+        // Check if user is active
+        $userModel = new \App\Models\UserModel();
+        $user = $userModel->find(session()->get('id'));
+        if (!$user || (isset($user['status']) && $user['status'] === 'inactive')) {
+            session()->destroy();
+            return $this->response->setJSON(['success' => false, 'message' => 'Your account has been deactivated.']);
+        }
+
         $user_id = session()->get('id');
         $course_id = $this->request->getPost('course_id');
 

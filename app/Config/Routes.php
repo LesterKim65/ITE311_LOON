@@ -48,3 +48,12 @@ $routes->post('/simple-debug', 'Materials::simpleDebug');
 // Notification routes
 $routes->get('/notifications', 'Notifications::get');
 $routes->post('/notifications/mark_read/(:num)', 'Notifications::mark_as_read/$1');
+
+// Manage Users routes
+$routes->get('/manage-users', 'ManageUsers::index');
+$routes->post('/manage-users/add', 'ManageUsers::add');
+$routes->post('/manage-users/update', 'ManageUsers::update');
+$routes->post('/manage-users/delete', 'ManageUsers::delete');
+$routes->post('/manage-users/restore', 'ManageUsers::restore');
+$routes->post('/manage-users/change-role', 'ManageUsers::changeRole');
+$routes->post('/manage-users/change-password', 'ManageUsers::changePassword');

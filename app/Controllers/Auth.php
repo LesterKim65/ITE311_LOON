@@ -96,12 +96,21 @@ class Auth extends BaseController
 			$userModel = new UserModel();
 			$user = $userModel->where('email', $this->request->getPost('email'))->first();
 
+			// Check if user exists and password is correct
 			if ($user && password_verify($this->request->getPost('password'), $user['password'])) {
+				// Check if user is inactive - prevent login
+				$userStatus = isset($user['status']) ? $user['status'] : 'active';
+				if ($userStatus === 'inactive') {
+					log_message('warning', 'Login attempt for inactive user: {email}', ['email' => $this->request->getPost('email')]);
+					$unreadCount = session()->get('isLoggedIn') ? (new NotificationModel())->getUnreadCount(session()->get('id')) : 0;
+					return view('auth/login', ['error' => 'Your account has been deactivated. Please contact an administrator.', 'unreadCount' => $unreadCount]);
+				}
 				$sessionData = [
 					'id'         => $user['id'],
 					'name'       => $user['name'],
 					'email'      => $user['email'],
 					'role'       => $user['role'],
+					'status'     => isset($user['status']) ? $user['status'] : 'active',
 					'isLoggedIn' => true
 				];
 
@@ -134,6 +143,21 @@ class Auth extends BaseController
 	{
 		if (! session()->get('isLoggedIn')) {
 			return redirect()->to('/login');
+		}
+
+		// Check if user was marked inactive (from BaseController check)
+		if (isset($this->data['userInactive']) && $this->data['userInactive']) {
+			return redirect()->to('/login')
+				->with('error', 'Your account has been deactivated. Please contact an administrator.');
+		}
+
+		// Double-check user status (extra safety)
+		$userModel = new UserModel();
+		$user = $userModel->find(session()->get('id'));
+		if (!$user || (isset($user['status']) && $user['status'] === 'inactive')) {
+			session()->destroy();
+			return redirect()->to('/login')
+				->with('error', 'Your account has been deactivated. Please contact an administrator.');
 		}
 
 		$user_id = session()->get('id');

@@ -51,7 +51,7 @@ if (session()->get('isLoggedIn')) {
 
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav me-auto">
-                    <?php if (uri_string() !== 'dashboard'): ?>
+                    <?php if (!session()->get('isLoggedIn')): ?>
                         <li class="nav-item">
                             <a class="nav-link" href="<?= base_url('/') ?>">Home</a>
                         </li>
